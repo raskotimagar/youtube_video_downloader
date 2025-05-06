@@ -1,19 +1,232 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>YouTube Downloader</title>
+    <title>YouTube video downloader</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 40px; max-width: 500px; margin: auto; }
-        .form-control { width: 100%; padding: 10px; margin-bottom: 10px; }
-        button { padding: 10px 20px; }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f0f0e0; /* Off-white brand color */
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border: 3px solid #a0a0a0;
+            padding: 20px;
+            box-shadow: 5px 5px 0 #d0d0d0;
+        }
+        
+        h1 {
+            color: #000;
+            font-size: 2.2em;
+            text-align: center;
+            margin: 0 0 20px 0;
+            font-family: 'Impact', sans-serif;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px #c0c0c0;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        /* Classic Windows 98-style input */
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #808080;
+            border-top-color: #000000;
+            border-left-color: #000000;
+            background: #ffffff;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        /* Authentic 90s button style */
+        button {
+            background: linear-gradient(to bottom, #e0e0e0, #c0c0c0);
+            color: #000;
+            border: 2px solid;
+            border-top-color: #ffffff;
+            border-left-color: #ffffff;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            padding: 10px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            position: relative;
+            margin: 10px 0;
+        }
+        
+        button:active {
+            border-top-color: #808080;
+            border-left-color: #808080;
+            border-right-color: #ffffff;
+            border-bottom-color: #ffffff;
+            background: linear-gradient(to bottom, #c0c0c0, #a0a0a0);
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f0f0e0;
+            border: 3px solid #a0a0a0;
+            padding: 20px;
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        /* Retro progress bar */
+        #progress-bar {
+            border: 2px solid #808080;
+            padding: 2px;
+            background: #ffffff;
+            height: 20px;
+            width: 200px;
+            margin: 10px auto;
+        }
+        
+        #progress-inner {
+            height: 100%;
+            width: 0%;
+            background: #008000;
+            transition: width 0.3s ease;
+        }
+        
+        /* Error message box */
+        .error-box {
+            background: #ffd0d0;
+            color: #800000;
+            border: 2px solid #800000;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+            font-family: 'Courier New', monospace;
+        }
     </style>
 </head>
 <body>
-    <h1>Download YouTube Video</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Download</button>
-    </form>
+    <div class="container">
+        <h1>YOUTUBE VIDEO DOWNLOADER</h1>
+        
+        <div class="error-box" id="error-message"></div>
+        
+        <form method="post" id="download-form">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label>YouTube URL:</label>
+                {{ form.url }}
+            </div>
+            
+            <button type="submit" id="download-button">
+                <span id="button-text">DOWNLOAD</span>
+                <span id="loading-text" style="display:none;">WORKING...</span>
+            </button>
+        </form>
+    </div>
+    
+    <div class="loading" id="loading">
+        <div style="font-size:20px;margin-bottom:10px;">⏳ PLEASE WAIT...</div>
+        <div id="progress-bar">
+            <div id="progress-inner"></div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('download-form');
+        const loading = document.getElementById('loading');
+        const errorBox = document.getElementById('error-message');
+        const progressInner = document.getElementById('progress-inner');
+        const buttonText = document.getElementById('button-text');
+        const loadingText = document.getElementById('loading-text');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            loading.style.display = 'block';
+            errorBox.style.display = 'none';
+            buttonText.style.display = 'none';
+            loadingText.style.display = 'inline';
+
+            try {
+                const response = await fetch("/", {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams(new FormData(form))
+                });
+
+                const data = await response.json();
+                if (data.task_id) {
+                    pollProgress(data.task_id);
+                } else if (data.error) {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Connection failed');
+            }
+        });
+
+        async function pollProgress(taskId) {
+            const checkProgress = async () => {
+                const response = await fetch(`/download/progress/?task_id=${taskId}`);
+                const data = await response.json();
+
+                switch (data.status) {
+                    case 'downloading':
+                        progressInner.style.width = data.progress;
+                        break;
+                    case 'processing':
+                        progressInner.style.width = '100%';
+                        document.querySelector('#loading div:first-child').textContent = '🛠 PROCESSING...';
+                        break;
+                    case 'completed':
+                        progressInner.style.width = '100%';
+                        document.querySelector('#loading div:first-child').textContent = '✅ DONE!';
+                        setTimeout(() => {
+                            window.location.href = `/download/file/${data.filename}/`;
+                        }, 1000);
+                        return;
+                    case 'error':
+                        showError(data.error || 'Unknown error');
+                        return;
+                    case 'not_found':
+                        showError('Progress info not found');
+                        return;
+                }
+
+                setTimeout(() => checkProgress(), 1000);
+            };
+
+            checkProgress();
+        }
+
+        function showError(message) {
+            errorBox.textContent = `ERROR: ${message}`;
+            errorBox.style.display = 'block';
+            loading.style.display = 'none';
+            buttonText.style.display = 'inline';
+            loadingText.style.display = 'none';
+        }
+
+        // Display form errors if they exist
+        {% if form.errors %}
+        showError("{% for field_errors in form.errors.values %}{% for error in field_errors %}{{ error|escapejs }} {% endfor %}{% endfor %}");
+        {% endif %}
+    });
+    </script>
 </body>
 </html>
