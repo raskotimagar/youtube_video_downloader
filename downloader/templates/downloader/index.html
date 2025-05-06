@@ -196,15 +196,21 @@
                     case 'completed':
                         progressInner.style.width = '100%';
                         document.querySelector('#loading div:first-child').textContent = '✅ DONE!';
+                        
+                        // Automatically trigger download
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = `/download/file/${data.filename}/?t=${Date.now()}`;
+                        downloadLink.download = 'video.mp4';
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                        
+                        // Hide loading after 1 second
                         setTimeout(() => {
-                            window.location.href = `/download/file/${data.filename}/`;
+                            loading.style.display = 'none';
+                            buttonText.style.display = 'inline';
+                            loadingText.style.display = 'none';
                         }, 1000);
-                        return;
-                    case 'error':
-                        showError(data.error || 'Unknown error');
-                        return;
-                    case 'not_found':
-                        showError('Progress info not found');
                         return;
                 }
 

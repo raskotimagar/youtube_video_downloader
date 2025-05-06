@@ -102,7 +102,10 @@ def download_file(request, filename):
     if '..' in filename or filename.startswith('/'):
         return HttpResponse("Invalid filename", status=400)
     
-    file_path = os.path.join(DOWNLOAD_DIR, filename)
+    file_path = os.path.join(DOWNLOAD_DIR, filename.split('?')[0])  # Remove cache-busting param
     if os.path.exists(file_path):
-        return FileResponse(open(file_path, 'rb'), filename='video.mp4')
+        response = FileResponse(open(file_path, 'rb'))
+        response['Content-Type'] = 'application/octet-stream'
+        response['Content-Disposition'] = f'attachment; filename="video.mp4"'
+        return response
     return HttpResponse("File not found", status=404)
